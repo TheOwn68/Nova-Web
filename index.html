@@ -339,5 +339,34 @@ footer{border-top:1px solid var(--border);padding:40px 0}
     </div>
   </div>
 </footer>
+
+<script>
+async function updateLatestRelease() {
+  const api = "https://api.github.com/repos/TheOwn68/Nova-Messages/releases/latest";
+
+  try {
+    const res = await fetch(api);
+    const data = await res.json();
+
+    const version = data.tag_name;
+    const apkUrl =
+      data.assets?.find(a => a.name.endsWith(".apk"))?.browser_download_url ||
+      data.html_url;
+
+    document.querySelectorAll("[data-latest-version]").forEach(el => {
+      el.textContent = version;
+    });
+
+    document.querySelectorAll("[data-latest-download]").forEach(el => {
+      el.href = apkUrl;
+    });
+
+  } catch (err) {
+    console.error("Failed to fetch latest release:", err);
+  }
+}
+
+updateLatestRelease();
+</script>
 </body>
 </html>
