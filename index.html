@@ -7,12 +7,7 @@
 
 <title>Nova Messages — Beautiful SMS for Android</title>
 
-<meta name="description" content="Fast, private, open-source SMS & MMS app for Android. No ads, no tracking." />
-
 <link rel="icon" href="assets/nova-logo.png">
-
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
 
@@ -24,7 +19,7 @@
 
 :root{
   --bg:#050505;
-  --text:#ffffff;
+  --text:#fff;
   --muted:#a1a1aa;
 
   --blue:#7cc5ff;
@@ -35,6 +30,7 @@
 }
 
 *{margin:0;padding:0;box-sizing:border-box}
+
 body{
   font-family:Inter,sans-serif;
   background:var(--bg);
@@ -57,11 +53,17 @@ body{
   filter:blur(120px);
   opacity:.25;
   border-radius:999px;
+  animation:glow 8s infinite ease-in-out;
 }
 
 .b1{width:500px;height:500px;background:var(--blue);top:-200px;left:-200px}
 .b2{width:600px;height:600px;background:var(--purple);top:100px;right:-250px}
 .b3{width:500px;height:500px;background:var(--pink);bottom:-200px;left:30%}
+
+@keyframes glow{
+  0%,100%{transform:scale(1)}
+  50%{transform:scale(1.1)}
+}
 
 /* =========================
    LAYOUT
@@ -92,8 +94,8 @@ header{
 
 .brand{
   display:flex;
-  gap:10px;
   align-items:center;
+  gap:10px;
   font-weight:700;
 }
 
@@ -143,7 +145,9 @@ p{color:var(--muted);margin-top:20px;font-size:18px}
 
 .hero-actions{margin-top:30px;display:flex;gap:15px;flex-wrap:wrap}
 
-/* phones */
+/* =========================
+   PHONES
+========================= */
 
 .phone-wrap{position:relative;height:600px}
 
@@ -152,27 +156,26 @@ p{color:var(--muted);margin-top:20px;font-size:18px}
   border-radius:40px;
   overflow:hidden;
   box-shadow:0 40px 80px rgba(0,0,0,.5);
+  animation:float 6s infinite ease-in-out;
 }
 
-.phone img{width:100%;display:block}
+.phone img{width:100%}
 
 .p1{width:320px;left:50%;transform:translateX(-50%) rotate(-6deg)}
 .p2{width:240px;left:0;top:120px;transform:rotate(-15deg)}
 .p3{width:240px;right:0;top:150px;transform:rotate(12deg)}
 
+@keyframes float{
+  0%,100%{transform:translateY(0)}
+  50%{transform:translateY(-10px)}
+}
+
 /* =========================
    SECTIONS
 ========================= */
 
-.title{
-  text-align:center;
-  max-width:700px;
-  margin:auto;
-}
-
+.title{text-align:center;margin:auto}
 .title h2{font-size:48px}
-
-.title p{margin-top:10px}
 
 /* =========================
    FEATURES
@@ -194,12 +197,11 @@ p{color:var(--muted);margin-top:20px;font-size:18px}
 }
 
 .card:hover{
-  transform:translateY(-8px);
-  background:rgba(255,255,255,.07);
+  transform:translateY(-10px);
 }
 
 /* =========================
-   SHOWCASE
+   GALLERY
 ========================= */
 
 .gallery{
@@ -212,6 +214,11 @@ p{color:var(--muted);margin-top:20px;font-size:18px}
 .gallery img{
   width:100%;
   border-radius:30px;
+  transition:.3s;
+}
+
+.gallery img:hover{
+  transform:scale(1.05);
 }
 
 /* =========================
@@ -227,13 +234,18 @@ p{color:var(--muted);margin-top:20px;font-size:18px}
 }
 
 /* =========================
-   FOOTER
+   ANIMATIONS
 ========================= */
 
-footer{
-  padding:60px 0;
-  border-top:1px solid var(--border);
-  color:var(--muted);
+.fade{
+  opacity:0;
+  transform:translateY(30px);
+  transition:0.8s;
+}
+
+.fade.show{
+  opacity:1;
+  transform:translateY(0);
 }
 
 </style>
@@ -257,13 +269,12 @@ footer{
 </div>
 </header>
 
-<section class="hero container">
+<section class="hero container fade">
 
   <div>
 
     <h1>
-      Messaging
-      <span class="grad">Reimagined</span>
+      Messaging <span class="grad">Reimagined</span>
     </h1>
 
     <p>
@@ -287,27 +298,26 @@ footer{
 
 </section>
 
-<section class="container">
+<section class="container fade">
 
   <div class="title">
     <h2>Why Nova?</h2>
-    <p>No ads. No tracking. Just messaging.</p>
   </div>
 
   <div class="features">
 
-    <div class="card">⚡ Fast performance</div>
-    <div class="card">🔒 Privacy first</div>
-    <div class="card">🚫 No ads</div>
-    <div class="card">🔍 Smart search</div>
-    <div class="card">👥 Group messaging</div>
+    <div class="card">⚡ Fast</div>
+    <div class="card">🔒 Private</div>
+    <div class="card">🚫 No Ads</div>
+    <div class="card">🔍 Search</div>
+    <div class="card">👥 Groups</div>
     <div class="card">🎨 Modern UI</div>
 
   </div>
 
 </section>
 
-<section class="container">
+<section class="container fade">
 
   <div class="title">
     <h2>Screenshots</h2>
@@ -321,32 +331,30 @@ footer{
 
 </section>
 
-<section class="container">
+<section class="container fade">
 
   <div class="cta">
-    <h2>Ready to try Nova?</h2>
-    <p>Download the latest release from GitHub.</p>
+    <h2>Download Nova Now</h2>
+    <p>Open source. Free forever.</p>
     <br>
     <a class="btn primary download-btn" href="#">Download Latest</a>
   </div>
 
 </section>
 
-<footer>
-  <div class="container">
-    Nova Messages · GPL-3.0 · Open Source
-  </div>
-</footer>
-
 <script>
+/* =========================
+   GITHUB RELEASES
+========================= */
+
 (async () => {
 
   const repo = "TheOwn68/Nova-Messages";
 
   try {
 
-    const res = await fetch(`https://api.github.com/repos/${repo}/releases/latest`);
-    const release = await res.json();
+    const r = await fetch(`https://api.github.com/repos/${repo}/releases/latest`);
+    const release = await r.json();
 
     let apk = release.html_url;
 
@@ -361,6 +369,23 @@ footer{
   } catch(e){}
 
 })();
+
+/* =========================
+   SCROLL ANIMATION
+========================= */
+
+const observer = new IntersectionObserver(entries=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      e.target.classList.add("show");
+    }
+  });
+});
+
+document.querySelectorAll(".fade").forEach(el=>{
+  observer.observe(el);
+});
+
 </script>
 
 </body>
