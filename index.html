@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nova Messages — Open-source SMS for Android</title>
+<meta name="description" content="A fast, privacy-first SMS &amp; MMS app for Android. No ads, no internet permission, no tracking. Fully open source.">
+
+<style>
+
+/* ============================================================
+   TOKENS — light by default, adapts for dark & reduced-transparency
+============================================================ */
+:root{
+  --bg:            #f5f5f7;
+  --surface:       #ffffff;
+  --surface-2:     #f0f0f2;
+  --line:          rgba(0,0,0,.08);
+  --line-soft:     rgba(0,0,0,.05);
+
+  --text:          #1d1d1f;
+  --muted:         #6e6e73;
+  --muted-2:       #8a8a8f;
+
+  --green:         #1f8a4c;   /* deep enough for light-surface contrast */
+  --green-bright:  #30d158;   /* apple system green, small accents only */
+  --green-dim:     rgba(48,209,88,.12);
+  --lime:          #7c8c00;   /* deepened lime, kept legible on white */
+  --lime-bright:   #d7e94e;   /* only ever on dark chips */
+
+  --nav-bg:        rgba(255,255,255,.68);
+  --card-shadow:   0 1px 2px rgba(0,0,0,.04), 0 20px 40px -28px rgba(0,0,0,.18);
+
+  --radius-lg: 28px;
+  --radius-md: 18px;
+  --radius-sm: 12px;
+
+  --ease-spring: cubic-bezier(.16,1,.3,1); /* approximates critically-damped settle */
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, Roboto, Helvetica, Arial, sans-serif;
+}
+
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:          #000000;
+    --surface:     #1c1c1e;
+    --surface-2:   #222224;
+    --line:        rgba(255,255,255,.1);
+    --line-soft:   rgba(255,255,255,.06);
+
+    --text:        #f5f5f7;
+    --muted:       #98989d;
+    --muted-2:     #7a7a7f;
+
+    --green:       #34d65f;
+    --green-dim:   rgba(48,209,88,.16);
+    --lime:        #d7e94e;
+
+    --nav-bg:      rgba(20,20,22,.66);
+    --card-shadow: 0 1px 0 rgba(255,255,255,.04), 0 24px 48px -28px rgba(0,0,0,.6);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce){
+  :root{ --nav-bg: var(--surface); }
+  header{ backdrop-filter:none !important; }
+}
+
+@media (prefers-contrast: more){
+  :root{ --line: currentColor; --muted: var(--text); }
+  .card, .feature-col, .shelf-card, .install-note, .cta{ border-width:1.5px !important; }
+}
+
+*{ margin:0; padding:0; box-sizing:border-box; }
+html{ scroll-behavior:smooth; }
+@media (prefers-reduced-motion:reduce){ html{ scroll-behavior:auto; } }
+
+body{
+  font: 100%/1.5 var(--font);
+  background:var(--bg);
+  color:var(--text);
+  overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+  transition:background .4s var(--ease-spring), color .4s var(--ease-spring);
+}
+
+img{ display:block; max-width:100%; -webkit-user-drag:none; user-select:none; }
+a{ color:inherit; }
+::selection{ background:var(--green-bright); color:#04170b; }
+:focus-visible{ outline:2px solid var(--green-bright); outline-offset:3px; border-radius:6px; }
+
+.container{ max-width:1160px; margin:0 auto; padding:0 24px; }
+section{ position:relative; }
+
+.eyebrow{
+  display:inline-flex; align-items:center; gap:8px;
+  font-size:12.5px; font-weight:600;
+  letter-spacing:.01em; text-transform:uppercase;
+  color:var(--green);
+}
+.eyebrow::before{
+  content:""; width:6px; height:6px; border-radius:50%;
+  background:var(--green-bright);
+  box-shadow:0 0 0 4px var(--green-dim);
+}
+
+/* ---- typography: size-specific tracking & leading, per spec ---- */
+h1,h2,h3,h4{ font-weight:700; }
+
+h1{
+  font-size:clamp(40px,5.6vw,66px);
+  line-height:1.03;
+  letter-spacing:-.025em;
+  margin-top:18px;
+}
+h2{
+  font-size:clamp(30px,3.6vw,42px);
+  line-height:1.08;
+  letter-spacing:-.02em;
+}
+h3{ font-size:19px; line-height:1.25; letter-spacing:-.005em; }
+h4{ font-size:15.5px; line-height:1.3; letter-spacing:0; }
+
+p{ color:var(--muted); line-height:1.6; letter-spacing:0; }
+
+/* ============================================================
+   NAV — translucent material, content scrolls under it
+============================================================ */
+header{
+  position:sticky; top:0; z-index:100;
+  background:var(--nav-bg);
+  backdrop-filter:blur(20px) saturate(180%);
+  -webkit-backdrop-filter:blur(20px) saturate(180%);
+  border-bottom:1px solid var(--line-soft);
+}
+
+.nav{ display:flex; justify-content:space-between; align-items:center; height:64px; gap:20px; }
+
+.brand{ display:flex; align-items:center; gap:9px; font-weight:700; font-size:16.5px; letter-spacing:-.01em; white-space:nowrap; }
+.brand svg{ width:27px; height:27px; flex:none; }
+
+.nav-links{ display:flex; align-items:center; gap:28px; font-size:14px; color:var(--muted); }
+.nav-links a{ text-decoration:none; transition:color .25s var(--ease-spring); }
+.nav-links a:hover{ color:var(--text); }
+
+.nav-actions{ display:flex; align-items:center; gap:10px; }
+
+/* ---- buttons: feedback on pointerdown, not release ---- */
+.btn{
+  padding:10px 18px; border-radius:999px;
+  border:1px solid var(--line);
+  text-decoration:none; color:var(--text);
+  display:inline-flex; align-items:center; gap:8px;
+  font-size:14px; font-weight:500; white-space:nowrap;
+  background:var(--surface);
+  transition:border-color .25s var(--ease-spring), background .25s var(--ease-spring), transform .1s ease-out;
+}
+.btn:hover{ border-color:rgba(0,0,0,.18); }
+.btn:active{ transform:scale(.97); transition:transform .1s ease-out; }
+
+.btn.primary{
+  background:linear-gradient(135deg,var(--green-bright),var(--lime-bright));
+  border-color:transparent; color:#04170b; font-weight:700;
+}
+.btn.primary:hover{ filter:brightness(1.04); }
+
+.btn.small{ padding:8px 15px; font-size:13.5px; }
+.icon{ width:15px; height:15px; flex:none; }
+
+/* ============================================================
+   HERO
+============================================================ */
+.hero{ padding:88px 0 76px; display:grid; grid-template-columns:1.05fr .95fr; gap:60px; align-items:center; }
+
+.hero h1 .accent{
+  background:linear-gradient(120deg,var(--green-bright),var(--lime-bright) 65%);
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+}
+.hero p.lead{ margin-top:20px; font-size:18px; max-width:46ch; }
+
+.hero-actions{ margin-top:32px; display:flex; gap:12px; flex-wrap:wrap; }
+
+.trust-row{ margin-top:28px; display:flex; flex-wrap:wrap; gap:20px; font-size:13px; color:var(--muted-2); }
+.trust-row span{ display:inline-flex; align-items:center; gap:7px; }
+.trust-row svg{ width:14px; height:14px; color:var(--green); flex:none; }
+
+/* ---- phone mock ---- */
+.phone-stage{ display:flex; justify-content:center; perspective:1400px; }
+
+.phone{
+  width:280px; border-radius:38px; background:#0c0d0b; padding:10px;
+  box-shadow:0 40px 70px -30px rgba(0,0,0,.55), 0 0 0 1px var(--line);
+  transform:rotate(2deg);
+  transition:transform .5s var(--ease-spring);
+}
+.phone-screen{
+  border-radius:30px; overflow:hidden; background:#eceee6;
+  position:relative; height:552px; display:flex; flex-direction:column;
+}
+.phone-notch{ position:absolute; top:8px; left:50%; transform:translateX(-50%); width:58px; height:15px; border-radius:20px; background:#0c0d0b; z-index:5; }
+
+.phone-head{
+  background:linear-gradient(120deg,#37d17f,#8ee06f);
+  padding:32px 20px 13px; color:#08150d;
+  display:flex; align-items:center; gap:11px; font-weight:700; font-size:14.5px;
+}
+.phone-head .avatar{ width:29px; height:29px; border-radius:50%; background:rgba(8,21,13,.16); display:flex; align-items:center; justify-content:center; font-size:12.5px; font-weight:700; }
+
+.phone-body{ flex:1; padding:16px 13px 8px; display:flex; flex-direction:column; gap:9px; overflow:hidden; }
+
+.bubble-row{ display:flex; }
+.bubble-row.them{ justify-content:flex-start; }
+.bubble-row.you{ justify-content:flex-end; }
+
+.bubble{
+  max-width:76%; padding:9px 13px; border-radius:18px; font-size:13px; line-height:1.4;
+  color:#20241d; background:#fff; box-shadow:0 1px 0 rgba(0,0,0,.04);
+  opacity:0; transform:translateY(6px) scale(.985);
+  animation:pop .4s var(--ease-spring) forwards;
+}
+.bubble-row.you .bubble{ background:linear-gradient(135deg,#d7e94e,#b8c92e); }
+.bubble-row.them .bubble{ border-bottom-left-radius:6px; }
+.bubble-row.you .bubble{ border-bottom-right-radius:6px; }
+@keyframes pop{ to{ opacity:1; transform:translateY(0) scale(1); } }
+
+.typing{ display:inline-flex; align-items:center; gap:4px; padding:10px 13px; border-radius:18px; border-bottom-left-radius:6px; background:#fff; width:fit-content; opacity:0; transition:opacity .25s ease; }
+.typing.show{ opacity:1; }
+.typing i{ width:5px; height:5px; border-radius:50%; background:#9a9d92; animation:blink 1s infinite ease-in-out; }
+.typing i:nth-child(2){ animation-delay:.15s; }
+.typing i:nth-child(3){ animation-delay:.3s; }
+@keyframes blink{ 0%,80%,100%{ opacity:.25; } 40%{ opacity:1; } }
+
+.phone-input{
+  margin:10px; padding:10px 14px; border-radius:999px;
+  background:linear-gradient(120deg,#d7e94e,#c3d43e); color:#20241d; font-size:12px;
+  display:flex; align-items:center; justify-content:space-between;
+  border-top:1px solid rgba(255,255,255,.5); /* light catching the material */
+}
+
+@media (prefers-reduced-motion:reduce){
+  .bubble{ animation:none; opacity:1; transform:none; }
+  .typing i{ animation:none; }
+  .phone{ transition:none; }
+}
+
+/* ============================================================
+   SECTION HEADS
+============================================================ */
+.section-head{ max-width:640px; margin-bottom:52px; }
+.section-head h2{ margin-top:12px; }
+.section-head p{ margin-top:14px; font-size:16px; }
+
+/* ============================================================
+   FEATURES
+============================================================ */
+.features{ padding:100px 0 56px; }
+
+.feature-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--line-soft); border:1px solid var(--line-soft); border-radius:var(--radius-lg); overflow:hidden; }
+
+.feature-col{ background:var(--surface); padding:32px 28px 36px; }
+.feature-col .tag{ width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; margin-bottom:18px; }
+.feature-col .tag svg{ width:18px; height:18px; }
+.tag.c1{ background:var(--green-dim); color:var(--green); }
+.tag.c2{ background:rgba(124,140,0,.1); color:var(--lime); }
+.tag.c3{ background:rgba(120,90,220,.1); color:#7a5adf; }
+
+.feature-col h3{ margin-bottom:13px; }
+.feature-col ul{ list-style:none; display:flex; flex-direction:column; gap:10px; }
+.feature-col li{ font-size:14px; color:var(--muted); line-height:1.5; padding-left:17px; position:relative; }
+.feature-col li::before{ content:""; position:absolute; left:0; top:7px; width:6px; height:6px; border-radius:1.5px; background:currentColor; opacity:.55; }
+.feature-col.c1 li::before{ color:var(--green); }
+.feature-col.c2 li::before{ color:var(--lime); }
+.feature-col.c3 li::before{ color:#7a5adf; }
+
+@media (max-width:860px){ .feature-grid{ grid-template-columns:1fr; } }
+
+/* ============================================================
+   SHOWCASE — direct-manipulation carousel: 1:1 drag, rubber-band
+   edges, momentum projection, spring snap, fully interruptible.
+============================================================ */
+.showcase{ padding:96px 0 56px; }
+
+.carousel{ position:relative; touch-action:pan-y; }
+.carousel-viewport{ overflow:hidden; margin:0 -24px; padding:0 24px; }
+
+.shelf-track{ display:flex; gap:20px; will-change:transform; cursor:grab; }
+.shelf-track.grabbing{ cursor:grabbing; }
+.shelf-track.grabbing .shelf-card{ pointer-events:none; }
+
+.shelf-card{
+  flex:0 0 auto; width:min(320px,78vw);
+  border-radius:var(--radius-lg); overflow:hidden;
+  border:1px solid var(--line); background:var(--surface);
+  box-shadow:var(--card-shadow);
+}
+.shelf-card img{ width:100%; aspect-ratio:1/1; object-fit:cover; object-position:center 15%; pointer-events:none; }
+.shelf-cap{ padding:16px 20px 20px; font-size:13.5px; color:var(--muted-2); border-top:1px solid var(--line-soft); }
+.shelf-cap b{ color:var(--text); font-weight:700; display:block; margin-bottom:2px; font-size:14.5px; }
+
+.carousel-dots{ display:flex; justify-content:center; gap:8px; margin-top:26px; }
+.carousel-dots button{
+  width:7px; height:7px; border-radius:50%; border:none; padding:0;
+  background:var(--line); cursor:pointer;
+  transition:background .3s var(--ease-spring), transform .3s var(--ease-spring);
+}
+.carousel-dots button[aria-current="true"]{ background:var(--green-bright); transform:scale(1.35); }
+
+/* ============================================================
+   INSTALL STEPS
+============================================================ */
+.install{ padding:96px 0 56px; }
+.install-wrap{ display:grid; grid-template-columns:.85fr 1.15fr; gap:52px; align-items:start; }
+
+.install-note{ border:1px solid var(--line); background:var(--surface); border-radius:var(--radius-md); padding:20px 22px; margin-top:20px; font-size:13.5px; color:var(--muted); box-shadow:var(--card-shadow); }
+.install-note b{ color:var(--text); }
+
+.steps{ counter-reset:step; display:flex; flex-direction:column; }
+.step{ display:grid; grid-template-columns:34px 1fr; gap:16px; padding:18px 0; border-top:1px solid var(--line-soft); }
+.step:first-child{ border-top:none; }
+.step .num{ counter-increment:step; width:32px; height:32px; border-radius:9px; background:var(--surface-2); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:13px; color:var(--lime); font-weight:700; }
+.step .num::before{ content:counter(step); }
+.step h4{ margin-bottom:4px; }
+.step p{ font-size:13.5px; }
+
+@media (max-width:860px){ .install-wrap{ grid-template-columns:1fr; gap:34px; } }
+
+/* ============================================================
+   CTA
+============================================================ */
+.cta-wrap{ padding:56px 0 116px; }
+.cta{
+  text-align:center; padding:72px 40px; border-radius:36px;
+  border:1px solid var(--line);
+  background:
+    radial-gradient(520px 260px at 50% -20%, var(--green-dim), transparent 70%),
+    var(--surface);
+  box-shadow:var(--card-shadow);
+}
+.cta p{ margin:14px auto 0; max-width:44ch; }
+.cta .hero-actions{ justify-content:center; margin-top:28px; }
+
+/* ============================================================
+   FOOTER
+============================================================ */
+footer{ border-top:1px solid var(--line-soft); padding:32px 0 46px; }
+.foot-row{ display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; font-size:12.5px; color:var(--muted-2); }
+.foot-links{ display:flex; gap:20px; }
+.foot-links a{ text-decoration:none; color:var(--muted); transition:color .25s var(--ease-spring); }
+.foot-links a:hover{ color:var(--text); }
+
+/* ============================================================
+   REVEAL ON SCROLL — cross-fade + short rise, spring-eased
+============================================================ */
+.reveal{ opacity:0; transform:translateY(20px); transition:opacity .6s var(--ease-spring), transform .6s var(--ease-spring); }
+.reveal.show{ opacity:1; transform:translateY(0); }
+@media (prefers-reduced-motion:reduce){
+  .reveal{ opacity:1; transform:none; transition:opacity .3s ease; }
+}
+
+/* ============================================================
+   RESPONSIVE
+============================================================ */
+@media (max-width:980px){
+  .hero{ grid-template-columns:1fr; padding-top:48px; gap:46px; }
+  .phone-stage{ order:-1; }
+  .phone{ transform:rotate(0); width:240px; }
+  .phone-screen{ height:460px; }
+  .nav-links{ display:none; }
+}
+@media (max-width:560px){
+  .container{ padding:0 18px; }
+  .btn.small span.full{ display:none; }
+  .foot-row{ flex-direction:column; align-items:flex-start; }
+}
+
+</style>
+</head>
+
+<body>
+
+<header>
+  <div class="container nav">
+    <div class="brand">
+      <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <defs>
+          <linearGradient id="mark" x1="4" y1="4" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#30d158"/>
+            <stop offset="1" stop-color="#d7e94e"/>
+          </linearGradient>
+        </defs>
+        <path d="M16 2 L19.2 12.8 L30 16 L19.2 19.2 L16 30 L12.8 19.2 L2 16 L12.8 12.8 Z" fill="url(#mark)"/>
+      </svg>
+      Nova Messages
+    </div>
+    <nav class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#screenshots">Screenshots</a>
+      <a href="#install">Install</a>
+    </nav>
+    <div class="nav-actions">
+      <a class="btn small" href="https://github.com/TheOwn68/Nova-Messages" target="_blank" rel="noopener">
+        <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.57.1.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.87-1.36-3.87-1.36-.53-1.34-1.29-1.7-1.29-1.7-1.05-.72.08-.7.08-.7 1.17.08 1.78 1.2 1.78 1.2 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.47.11-3.06 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.79 0c2.2-1.49 3.17-1.18 3.17-1.18.64 1.59.24 2.77.12 3.06.74.81 1.19 1.83 1.19 3.09 0 4.42-2.7 5.4-5.26 5.68.42.36.78 1.07.78 2.17 0 1.57-.01 2.83-.01 3.22 0 .3.21.66.8.55A10.51 10.51 0 0 0 23.5 12c0-6.35-5.15-11.5-11.5-11.5Z"/></svg>
+        <span class="full">GitHub</span>
+      </a>
+      <a class="btn primary small" id="nav-download" href="https://github.com/TheOwn68/Nova-Messages/releases/latest" target="_blank" rel="noopener">Download</a>
+    </div>
+  </div>
+</header>
+
+<section class="hero container">
+  <div>
+    <span class="eyebrow">Free · Open source · No ads</span>
+    <h1>Texting your way, <span class="accent">not the ad network's.</span></h1>
+    <p class="lead">Nova Messages is a fast, lightweight SMS &amp; MMS app for Android that works entirely offline. No trackers, no accounts, no permissions it doesn't need — just a clean inbox you can actually make your own.</p>
+
+    <div class="hero-actions">
+      <a class="btn primary" id="hero-download" href="https://github.com/TheOwn68/Nova-Messages/releases/latest" target="_blank" rel="noopener">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13"/><path d="m7 12 5 5 5-5"/><path d="M5 21h14"/></svg>
+        Download for Android
+      </a>
+      <a class="btn" href="https://github.com/TheOwn68/Nova-Messages" target="_blank" rel="noopener">View source</a>
+    </div>
+
+    <div class="trust-row">
+      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 3 6v6c0 5 4 8.5 9 10 5-1.5 9-5 9-10V6z"/></svg>GPL-3.0 licensed</span>
+      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.4 5.6a9 9 0 1 1-12.8 0"/><path d="M12 2v6"/></svg>No internet permission</span>
+      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg>Zero ads, zero trackers</span>
+    </div>
+  </div>
+
+  <div class="phone-stage" aria-hidden="true">
+    <div class="phone">
+      <div class="phone-screen">
+        <div class="phone-notch"></div>
+        <div class="phone-head">
+          <div class="avatar">G</div>
+          Gary Dawn
+        </div>
+        <div class="phone-body" id="chat-body"></div>
+        <div class="phone-input"><span>Type a message…</span> ➤</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="features container" id="features">
+  <div class="section-head reveal">
+    <span class="eyebrow">Why Nova</span>
+    <h2>Everything a texting app needs. Nothing it doesn't.</h2>
+    <p>Nova strips messaging back to what actually matters, then hands you the controls most apps hide.</p>
+  </div>
+
+  <div class="feature-grid reveal">
+    <div class="feature-col c1">
+      <div class="tag c1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+      <h3>Stay connected</h3>
+      <ul>
+        <li>Group messaging for the whole thread, not just one contact</li>
+        <li>Photos and emoji that share instantly, no compression mess</li>
+        <li>Quick greetings for fast replies when you're mid-scroll</li>
+      </ul>
+    </div>
+    <div class="feature-col c2">
+      <div class="tag c2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg></div>
+      <h3>Take control</h3>
+      <ul>
+        <li>Block unwanted numbers before they reach your inbox</li>
+        <li>Phrase filtering auto-blocks spam by keyword, not just sender</li>
+        <li>Export and import your block list to move between devices</li>
+      </ul>
+    </div>
+    <div class="feature-col c3">
+      <div class="tag c3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v6M12 17v6M4.2 4.2l4.2 4.2M15.5 15.5l4.2 4.2M1 12h6M17 12h6M4.2 19.8l4.2-4.2M15.5 8.5l4.2-4.2"/></svg></div>
+      <h3>Privacy by default</h3>
+      <ul>
+        <li>Runs fully offline — SMS never needed an internet connection</li>
+        <li>No ads, no analytics SDKs, no unnecessary permissions</li>
+        <li>Fully open source, so anyone can verify every claim above</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="showcase container" id="screenshots">
+  <div class="section-head reveal">
+    <span class="eyebrow">Inside the app</span>
+    <h2>Yours to restyle, down to the bubble.</h2>
+    <p>Every screen is built for customization — layouts, colors, bubble shapes and themes are all yours to tune. Drag to look around.</p>
+  </div>
+
+  <div class="carousel reveal" id="carousel">
+    <div class="carousel-viewport">
+      <div class="shelf-track" id="shelf-track">
+        <div class="shelf-card">
+          <img src="assets/showcase-layout.webp" alt="Nova Messages conversation list showing a new layout with color-coded contact bubbles and a redesigned navigation bar" loading="lazy" draggable="false">
+          <div class="shelf-cap"><b>Layout &amp; color</b>Pick how your inbox is organized and how each contact stands out.</div>
+        </div>
+        <div class="shelf-card">
+          <img src="assets/showcase-bubbles.webp" alt="Nova Messages chat thread showing rounded message bubbles and smooth animations" loading="lazy" draggable="false">
+          <div class="shelf-cap"><b>Bubble styles</b>Shape, corners and motion — tuned per-conversation, not locked in.</div>
+        </div>
+        <div class="shelf-card">
+          <img src="assets/showcase-settings.webp" alt="Nova Messages settings screen listing appearance, UI colors, message bubbles, notifications, security and theme presets" loading="lazy" draggable="false">
+          <div class="shelf-cap"><b>Deep settings</b>Appearance, security and behavior, all in one uncluttered menu.</div>
+        </div>
+      </div>
+    </div>
+    <div class="carousel-dots" id="carousel-dots"></div>
+  </div>
+</section>
+
+<section class="install container" id="install">
+  <div class="install-wrap">
+    <div class="section-head reveal" style="margin-bottom:0">
+      <span class="eyebrow">Installation</span>
+      <h2>Sideloading takes two minutes.</h2>
+      <p>Nova ships as an APK on GitHub — no Play Store review, no delay between a fix landing and you having it.</p>
+      <div class="install-note">
+        <b>Heads up:</b> some Android builds require enabling Restricted Settings for sideloaded apps. If Nova doesn't open right after install, the steps on the right clear it up in under a minute.
+      </div>
+    </div>
+
+    <div class="steps reveal">
+      <div class="step"><div class="num"></div><div><h4>Download the APK</h4><p>Grab the latest release from GitHub and open it — Android will prompt you to allow the install.</p></div></div>
+      <div class="step"><div class="num"></div><div><h4>Allow restricted settings</h4><p>If prompted, tap through Android's restricted settings warning — this is standard for any app installed outside the Play Store.</p></div></div>
+      <div class="step"><div class="num"></div><div><h4>Open App Info → Storage</h4><p>Long-press the Nova icon, open App Info, then Storage.</p></div></div>
+      <div class="step"><div class="num"></div><div><h4>Clear cache, then Force Stop</h4><p>Tap Clear Cache, then Force Stop. This resolves first-launch issues on most devices.</p></div></div>
+      <div class="step"><div class="num"></div><div><h4>Reopen Nova</h4><p>Launch it again — you're set.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<section class="cta-wrap container">
+  <div class="cta reveal">
+    <span class="eyebrow">Get Nova</span>
+    <h2>Free forever. Yours to inspect.</h2>
+    <p>No account, no subscription, no catch — download the APK or read every line of source on GitHub.</p>
+    <div class="hero-actions">
+      <a class="btn primary" id="cta-download" href="https://github.com/TheOwn68/Nova-Messages/releases/latest" target="_blank" rel="noopener">Download latest release</a>
+      <a class="btn" href="https://github.com/TheOwn68/Nova-Messages" target="_blank" rel="noopener">Browse the code</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container foot-row">
+    <span>© 2026 Nova Messages · Licensed under GPL-3.0</span>
+    <div class="foot-links">
+      <a href="https://github.com/TheOwn68/Nova-Messages" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/TheOwn68/Nova-Messages/issues" target="_blank" rel="noopener">Issues</a>
+      <a href="https://github.com/TheOwn68/Nova-Messages/blob/master/LICENSE" target="_blank" rel="noopener">License</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* =========================================================
+   GITHUB RELEASES — populate every download button
+========================================================= */
+(async () => {
+  const repo = "TheOwn68/Nova-Messages";
+  const buttons = document.querySelectorAll("#nav-download, #hero-download, #cta-download");
+  try {
+    const res = await fetch(`https://api.github.com/repos/${repo}/releases/latest`);
+    if (!res.ok) throw new Error("no releases");
+    const release = await res.json();
+    const asset = release.assets?.find(a => a.name.endsWith(".apk"));
+    const href = asset ? asset.browser_download_url : release.html_url;
+    const label = release.tag_name ? `Download ${release.tag_name}` : "Download";
+    buttons.forEach(b => {
+      b.href = href;
+      if (b.id !== "nav-download") b.textContent = b.id === "hero-download" ? "Download for Android" : label;
+    });
+  } catch (e) { /* buttons already point at the releases page */ }
+})();
+
+/* =========================================================
+   SCROLL REVEAL — cross-fade, not slide, per reduced-motion spec
+========================================================= */
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) { e.target.classList.add("show"); revealObserver.unobserve(e.target); }
+  });
+}, { threshold: 0.15 });
+document.querySelectorAll(".reveal").forEach(el => revealObserver.observe(el));
+
+/* =========================================================
+   LIVE CHAT DEMO — Gary Dawn asking about the app
+========================================================= */
+const chatBody = document.getElementById("chat-body");
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+const script = [
+  { from: "them", text: "What is this app?" },
+  { from: "you",  text: "Nova Messages — fast, private SMS, fully open source" },
+  { from: "them", text: "Does it support group chats?" },
+  { from: "you",  text: "Yep, plus themes, and zero ads" },
+  { from: "them", text: "this is a great app" },
+];
+
+function makeTyping(side){
+  const row = document.createElement("div"); row.className = `bubble-row ${side}`;
+  const t = document.createElement("div"); t.className = "typing";
+  t.innerHTML = "<i></i><i></i><i></i>"; row.appendChild(t);
+  return { row, t };
+}
+function makeBubble(side, text){
+  const row = document.createElement("div"); row.className = `bubble-row ${side}`;
+  const b = document.createElement("div"); b.className = "bubble"; b.textContent = text;
+  row.appendChild(b); return row;
+}
+async function wait(ms){ return new Promise(r => setTimeout(r, ms)); }
+
+async function playChat(){
+  if (!chatBody) return;
+  if (reduceMotion) {
+    chatBody.innerHTML = "";
+    script.forEach(m => chatBody.appendChild(makeBubble(m.from, m.text)));
+    return;
+  }
+  chatBody.innerHTML = "";
+  for (const msg of script) {
+    const { row, t } = makeTyping(msg.from);
+    chatBody.appendChild(row);
+    requestAnimationFrame(() => t.classList.add("show"));
+    await wait(850);
+    row.remove();
+    chatBody.appendChild(makeBubble(msg.from, msg.text));
+    await wait(1000);
+  }
+  await wait(2500);
+  playChat();
+}
+playChat();
+
+/* =========================================================
+   SHOWCASE CAROUSEL — direct manipulation, per Apple Design skill:
+   · 1:1 pointer tracking with setPointerCapture
+   · progressive rubber-band resistance past the edges
+   · momentum projection (exponential-decay form) on release
+   · critically-damped spring snap, velocity handed off from the drag
+   · fully interruptible — grabbing mid-animation resumes from the
+     live on-screen position, never the logical target
+========================================================= */
+(() => {
+  const track = document.getElementById("shelf-track");
+  const viewport = track?.parentElement;
+  const dotsWrap = document.getElementById("carousel-dots");
+  if (!track || !viewport) return;
+
+  const cards = Array.from(track.children);
+  const reduceMotionCarousel = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  if (reduceMotionCarousel) {
+    viewport.style.overflowX = "auto";
+    track.style.scrollSnapType = "x mandatory";
+    cards.forEach(c => c.style.scrollSnapAlign = "start");
+    return;
+  }
+
+  let pos = 0;
+  let target = 0;
+  let dragging = false;
+  let startX = 0, startPos = 0;
+  let history = [];
+  let rafId = null;
+  let activeIndex = 0;
+
+  function bounds(){
+    const min = Math.min(0, viewport.clientWidth - track.scrollWidth);
+    return { min, max: 0 };
+  }
+
+  function snapPoints(){
+    return cards.map(c => -c.offsetLeft);
+  }
+
+  function nearestSnap(value){
+    const pts = snapPoints();
+    let best = pts[0], bestDist = Infinity, idx = 0;
+    pts.forEach((p, i) => {
+      const d = Math.abs(p - value);
+      if (d < bestDist) { bestDist = d; best = p; idx = i; }
+    });
+    return { point: best, index: idx };
+  }
+
+  function project(velocityPxPerSec, decelerationRate = 0.998){
+    return (velocityPxPerSec / 1000) * decelerationRate / (1 - decelerationRate);
+  }
+
+  function rubberband(overshoot, dimension, constant = 0.55){
+    return (overshoot * dimension * constant) / (dimension + constant * Math.abs(overshoot));
+  }
+
+  function setTransform(x){
+    pos = x;
+    track.style.transform = `translate3d(${x}px,0,0)`;
+  }
+
+  function stopSpring(){ if (rafId) cancelAnimationFrame(rafId); rafId = null; }
+
+  function springTo(to, initialVelocity = 0){
+    stopSpring();
+    target = to;
+    let velocity = initialVelocity;
+    let last = performance.now();
+    const stiffness = 210, mass = 1;
+    const damping = 2 * Math.sqrt(stiffness * mass);
+
+    function step(now){
+      const dt = Math.min((now - last) / 1000, 1 / 30);
+      last = now;
+      const force = -stiffness * (pos - target);
+      const dampF = -damping * velocity;
+      const acc = (force + dampF) / mass;
+      velocity += acc * dt;
+      setTransform(pos + velocity * dt);
+
+      if (Math.abs(velocity) < 4 && Math.abs(pos - target) < 0.5) {
+        setTransform(target);
+        updateDots();
+        rafId = null;
+        return;
+      }
+      rafId = requestAnimationFrame(step);
+    }
+    rafId = requestAnimationFrame(step);
+  }
+
+  function updateDots(){
+    const { index } = nearestSnap(pos);
+    activeIndex = index;
+    dotsWrap.querySelectorAll("button").forEach((d, i) => {
+      d.setAttribute("aria-current", i === index ? "true" : "false");
+    });
+  }
+
+  track.addEventListener("pointerdown", (e) => {
+    track.setPointerCapture(e.pointerId);
+    stopSpring();
+    dragging = true;
+    track.classList.add("grabbing");
+    startX = e.clientX;
+    startPos = pos;
+    history = [{ x: e.clientX, t: performance.now() }];
+  });
+
+  track.addEventListener("pointermove", (e) => {
+    if (!dragging) return;
+    const dx = e.clientX - startX;
+    let proposed = startPos + dx;
+    const { min, max } = bounds();
+
+    if (proposed > max) proposed = max + rubberband(proposed - max, viewport.clientWidth);
+    else if (proposed < min) proposed = min - rubberband(min - proposed, viewport.clientWidth);
+
+    setTransform(proposed);
+
+    history.push({ x: e.clientX, t: performance.now() });
+    if (history.length > 6) history.shift();
+  });
+
+  function endDrag(e){
+    if (!dragging) return;
+    dragging = false;
+    track.classList.remove("grabbing");
+
+    let velocity = 0;
+    if (history.length >= 2) {
+      const a = history[history.length - 2], b = history[history.length - 1];
+      const dt = (b.t - a.t) || 16;
+      velocity = ((b.x - a.x) / dt) * 1000;
+    }
+
+    const { min, max } = bounds();
+    if (pos > max || pos < min) {
+      springTo(pos > max ? max : min, velocity);
+      return;
+    }
+
+    const projected = pos + project(velocity);
+    const { point } = nearestSnap(projected);
+    springTo(point, velocity);
+  }
+
+  track.addEventListener("pointerup", endDrag);
+  track.addEventListener("pointercancel", endDrag);
+
+  cards.forEach((_, i) => {
+    const dot = document.createElement("button");
+    dot.type = "button";
+    dot.setAttribute("aria-label", `Go to screenshot ${i + 1}`);
+    dot.setAttribute("aria-current", i === 0 ? "true" : "false");
+    dot.addEventListener("click", () => {
+      const pts = snapPoints();
+      const { min, max } = bounds();
+      const clamped = Math.max(min, Math.min(max, pts[i]));
+      springTo(clamped, 0);
+    });
+    dotsWrap.appendChild(dot);
+  });
+
+  window.addEventListener("resize", () => {
+    const pts = snapPoints();
+    const { min, max } = bounds();
+    const clamped = Math.max(min, Math.min(max, pts[activeIndex] ?? 0));
+    setTransform(clamped);
+    updateDots();
+  });
+})();
+</script>
+
+</body>
+</html>
